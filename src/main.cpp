@@ -6,7 +6,7 @@ const rock_t rock = {																							// globale Konfigurationsstruktur mi
 	.longPress 	=	400,
 	.prMax 			= 4,
 	.hold 			= { 20, 1000, 300, 200 },
-	.msg 				= { "STOP", "FORWARD", "BACKWARD", "PINGPONG" }
+	.msg 				= { "WAIT", "FORWARD", "BACKWARD", "PINGPONG" }
 };
 
 config_t co = {																										// globale Konfigurationsstruktur mit allen relevanten Parametern
@@ -32,7 +32,7 @@ void init(const rock_t *rPtr) {																		// Alle Pins initialisieren, wi
 void setup() {
 	Serial.begin(115200);
 	delay(1000);  																									// Warte auf Serial-Monitor
-	Serial.println("\nBubi gestartet.\n");
+	Serial.println("\nBubi gestartet.\nAktueller Modus: " + String(rock.msg[co.mode]));  		// Ausgabe des Startmodus im Serial-Monitor
 	init(&rock);  																									// Initialisierung der Pins
 }
 
