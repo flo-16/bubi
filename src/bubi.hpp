@@ -52,7 +52,7 @@ class Show {																													// Input: Ausgangsmuster, Output: LED-Z
 		config_t &rg;
 		uint8_t dat;
 	public:
-		Show(config_t &rg) : rg(rg), dat(0) {};
+		Show(config_t &rg) : rg(rg), dat(0x0F) {};
 		void update();
 };
 
@@ -81,13 +81,12 @@ void Button::update() {
 void Handler::shortClick() {
 	uint8_t temp = rg.mode + 1; 
 	temp %= rg.rPtr->prMax;  																						// Modulo-Operation, um innerhalb der Anzahl der Pattern zu bleiben	
-	Serial.println("Aktueller Modus: " + String(rg.rPtr->msg[temp]));  		// Ausgabe des neuen Modus im Serial-Monitor
+	Serial.println("Aktueller Modus: " + String(rg.rPtr->msg[temp]));  	// Ausgabe des neuen Modus im Serial-Monitor
 	rg.mode = static_cast<modeType_t>(temp);  													// Modulo-Ergebnis in Modus-Enumeration umwandeln
 	rg.click = NOCLICK;		
 };
 
 void Handler::shortLoop() {
-	static uint8_t oldValue = 0xFF;  																		// Initialwert, der garantiert ungleich dem ersten Ausgangsmuster ist
 	uint32_t now = millis();
 	if(now < nextTime) return;
 	nextTime = now + rg.rPtr->hold[rg.mode];
@@ -96,10 +95,6 @@ void Handler::shortLoop() {
 		case FORWARD:  ror(); break;
 		case BACKWARD: rol(); break;
 		case PING: ping(); break;
-	}
-	if(oldValue != rg.output) {
-		oldValue = rg.output;
-		Serial.println("Output: " + String(rg.output + 0x100, BIN).substring(1));  		// Ausgabe des aktuellen Musters im Serial-Monitor
 	}
 }
 
@@ -134,13 +129,23 @@ void Handler::ping() {																								// Schiebt die 1 von links nach re
 		case LEFT: 	if(rg.output == 0b10000000) dir = RIGHT; else rg.output = (rg.output << 1); break;
 		case RIGHT: if(rg.output == 0b00000001) dir = LEFT; else rg.output = (rg.output >> 1); break;
 	}
-};
+}
 
 void Show::update() {
-	if(dat == rg.output) return;
-	dat = rg.output;
-	for(uint8_t i = 0; i < 8; i++) {
-		digitalWrite(rg.rPtr->leds[i], (dat >> i) & 0x01);
+	if(dat != rg.output) {	
+		dat = rg.output;
+		for(uint8_t i = 0; i < 8; i++) {
+			digitalWrite(rg.rPtr->leds[i], (dat >> i) & 0x01);
+		}
+		if(dat==0) Serial.println("Output: -"); 	
+		else {
+			char buffer[9];  																							// Puffer für die Binärdarstellung des Musters
+			for(uint8_t i = 0; i < 8; i++) {
+				buffer[7 - i] = (dat & (0x01 << i)) ? '\x2A' : '\x20';  		// Fülle den Puffer mit '*' oder ' ' entsprechend den Bits des Musters
+			}
+			buffer[8] = '\0';  																						// Nullterminator für die String-Ausgabe
+			Serial.println(buffer);																	
+		}											
 	}
 }
 
