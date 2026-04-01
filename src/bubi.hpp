@@ -4,7 +4,7 @@
 #include <LiquidCrystal_I2C.h>
 
 const char BUBI_NAME[] 		= "Application Bubi";  											// Application name for LCD display
-const char BUBI_VERSION[] = "Version 2.0.1";  												// Application version
+const char BUBI_VERSION[] = "Version 3.0.0";  												// Application version
 
 
 // Typdefinitionen
@@ -27,6 +27,7 @@ typedef struct {																											// Globale Variable für die Konfigur
 	modeType_t 			mode;																								// aktueller Modus
 	uint8_t 				ltClick; 																						// Anzahl der Longclicks	
 	uint8_t 				output;																							// aktuelles Ausgangsmuster
+	boolean 				refresh;																						// Update-Flag für die Anzeige
 	clickType_t 		click;																							// Click-Status
 	const rock_t 		*rPtr;																							// Zeiger auf die globale Konstantenstruktur
 } config_t;	
@@ -58,11 +59,18 @@ class Handler {																												// Input: Click-Status, Output: Modus
 class Show {																													// Input: Ausgangsmuster, Output: LED-Zustand
 	private:
 		config_t &rg;
-		uint8_t dat;
-		lcd_t lcd;																												// LCD instance for displaying values
 	public:
-		Show(config_t &rg) : rg(rg), dat(0x0F), lcd(rg.rPtr->lcdData[0], rg.rPtr->lcdData[1], rg.rPtr->lcdData[2])  {}
-		void init();
+		Show(config_t &rg) : rg(rg)  {}
+		void update();
+};
+
+class Lcd {																														// LCD-Klasse, Input: Modus, Ausgangsmuster, Output: LCD-Anzeige
+	private:
+		config_t &rg;
+		lcd_t lcd;
+	public:
+		Lcd(config_t &rg) : rg(rg), lcd(rg.rPtr->lcdData[0], rg.rPtr->lcdData[1], rg.rPtr->lcdData[2]) {}
+ 		void init();
 		void update();
 };
 
@@ -94,17 +102,16 @@ void Handler::shortClick() {
 	Serial.println("Aktueller Modus: " + String(rg.rPtr->msg[temp]));  	// Ausgabe des neuen Modus im Serial-Monitor
 	rg.mode = static_cast<modeType_t>(temp);  													// Modulo-Ergebnis in Modus-Enumeration umwandeln
 	rg.click = NOCLICK;		
-};
+}
 
-void Handler::shortLoop() {																						// Handler für die Muster, der in jedem Loop-Durchlauf aufgerufen wird.
-		uint32_t now = millis();
-	if(now < nextTime) return;
-	nextTime = now + rg.rPtr->hold[rg.mode];
-	switch (rg.mode) {
-		case STAY: rg.output = 0; break;
-		case FORWARD:  ror(); break;
-		case BACKWARD: rol(); break;
-		case PING: ping(); break;
+void Handler::shortLoop() {		
+	if(rg.refresh) {																										// Handler für die Muster, der in jedem refresh aufgerufen wird.
+		switch (rg.mode) {
+			case STAY: rg.output = 0; break;
+			case FORWARD:  ror(); break;
+			case BACKWARD: rol(); break;
+			case PING: ping(); break;
+		}
 	}
 }
 
@@ -141,7 +148,22 @@ void Handler::ping() {																								// Schiebt die 1 von links nach re
 	}
 }
 
-void Show::init() {
+void Show::update() {
+	if(rg.refresh && rg.output != 0) {																	// LED-Update, wenn das Refresh-Flag gesetzt ist und das Ausgangsmuster nicht 0 ist
+		uint8_t dat = rg.output;
+ 		for(uint8_t i = 0; i < 8; i++) {
+			digitalWrite(rg.rPtr->leds[i], (dat >> i) & 0x01);
+		}
+		char buffer[9];  																									// Puffer für die Binärdarstellung des Musters
+		for(uint8_t i = 0; i < 8; i++) {
+			buffer[7 - i] = (dat & (0x01 << i)) ? '\x2A' : '\x20';  				// Fülle den Puffer mit '*' oder ' ' entsprechend den Bits des Musters
+		}
+		buffer[8] = '\0';  																								// Nullterminator für die String-Ausgabe
+		Serial.println(buffer);	
+	}	
+}
+
+void Lcd::init() {
 	lcd.init();  																												// LCD initialisieren
 	lcd.backlight();  																									// Hintergrundbeleuchtung einschalten
 	lcd.clear();  																											// LCD löschen
@@ -159,29 +181,22 @@ void Show::init() {
 	lcd.print("Output -");  																						// Print initial output pattern in binary on the second row
 }
 
-void Show::update() {
-	if(dat != rg.output) {	
-		dat = rg.output;
-	lcd.setCursor(6, 0);
-	lcd.print(rg.rPtr->msg[rg.mode]);
-	lcd.setCursor(7, 1);
-		for(uint8_t i = 0; i < 8; i++) {
-			digitalWrite(rg.rPtr->leds[i], (dat >> i) & 0x01);
+void Lcd::update() {
+	if(rg.refresh) {																										// LCD-Update, wenn das Refresh-Flag gesetzt ist
+		lcd.setCursor(6, 0);
+		lcd.print(rg.rPtr->msg[rg.mode]);
+		lcd.setCursor(7, 1);
+		if(rg.output == 0) {
+			lcd.print("        ");  																				// Clear the second row if output is 0
+			return;
 		}
-		if(dat == 0) {
-			Serial.println("Output: -"); 
-			lcd.print("-       ");  																				// Print the current output
-		}	
-		else {
-			char buffer[9];  																								// Puffer für die Binärdarstellung des Musters
-			for(uint8_t i = 0; i < 8; i++) {
-				buffer[7 - i] = (dat & (0x01 << i)) ? '\x2A' : '\x20';  			// Fülle den Puffer mit '*' oder ' ' entsprechend den Bits des Musters
-			}
-			buffer[8] = '\0';  																							// Nullterminator für die String-Ausgabe
-			Serial.println(buffer);	
-			lcd.print(buffer);  																						// Print the current output																
-		}											
-	}
+		char buffer[9];  		
+		for(uint8_t i = 0; i < 8; i++) {
+			buffer[7 - i] = (rg.output & (0x01 << i)) ? '\x2A' : '\x20';  	// Fülle den Puffer mit '*' oder ' ' entsprechend den Bits des Musters
+		}
+		buffer[8] = '\0';  																								// Nullterminator für die String-Ausgabe
+		lcd.print(buffer);  																							// Print the current output pattern in binary on the second row	
+	}																					
 }
 
 #endif	// BINGO_HPP

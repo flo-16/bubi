@@ -19,6 +19,7 @@ config_t co = {																												// globale Variable - wird in den Kla
 	.mode 			= STAY,
 	.ltClick 		= 0,
 	.output 		= 0,
+	.refresh		= true,
 	.click 			= NOCLICK,
 	.rPtr 			= &rock
 };
@@ -26,6 +27,7 @@ config_t co = {																												// globale Variable - wird in den Kla
 Button button(co);  																									// Button-Objekt mit Referenz auf Konfigurationsstruktur
 Handler handler(co);  																								// Handler-Objekt mit Referenz auf Konfigurationsstruktur
 Show show(co);                                          							// Show-Objekt mit Referenz auf Konfigurationsstruktur
+Lcd lcd(co);																													// LCD-Objekt mit Referenz auf Konfigurationsstruktur
 
 void init(const rock_t *rPtr) {																				// Alle Pins initialisieren, wird in setup() aufgerufen
 	pinMode(rPtr->btn, INPUT_PULLUP);
@@ -40,13 +42,20 @@ void setup() {
 	delay(1000);  																											// Warte auf Serial-Monitor
 	Serial.println("\nBubi gestartet.\nAktueller Modus: " + String(rock.msg[co.mode]));  		
 	init(&rock); 
-	show.init(); 																												// Initialisierung LCD und Anzeige der Startinformationen
+	lcd.init();																												  // Initialisierung LCD und Anzeige der Startinformationen
 }
 
 void loop() {
+	static uint32_t nextTime = 0;
+	if(millis() > nextTime) {
+		nextTime = millis() + co.rPtr->hold[co.mode];  										// Aktualisierungsintervall entsprechend des aktuellen Modus setzen
+		co.refresh = true;  																							// Update-Flag setzen, damit die Anzeige aktualisiert wird
+	}
 	button.update();
 	handler.update();
 	show.update();
+	lcd.update();
+	co.refresh = false;  																								// Update-Flag zurücksetzen, um unnötige Updates zu vermeiden
 	delay(10);  																												// Kurze Pause, um CPU-Last zu reduzieren
 }
 

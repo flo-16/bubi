@@ -18,4 +18,8 @@
 - git tag -a _vx.x_ -m "_Tag-Nachricht_"
 - git push
 - git push --tags
+### Merge-Konflikt
+- _Konflikt auflösen_
+- git add __File__
+- git commit --amend --no-edit
 #### Diesen Workflow unbedingt einhalten!
