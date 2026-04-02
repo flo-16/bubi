@@ -15,8 +15,8 @@
 ### Release
 - git switch main
 - git merge dev
-- git tag -a _vx.x_ -m "_Tag-Nachricht_"
 - git push
+- git tag -a _vx.x_ -m "_Tag-Nachricht_"
 - git push --tags
 ### Merge-Konflikt
 - _Konflikt auflösen_
