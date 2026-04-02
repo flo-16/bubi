@@ -27,6 +27,7 @@ typedef struct {																											// Globale Variable für die Konfigur
 	modeType_t 			mode;																								// aktueller Modus
 	uint8_t 				ltClick; 																						// Anzahl der Longclicks	
 	uint8_t 				output;																							// aktuelles Ausgangsmuster
+	char 						*outstr;																						// Ausgabe des Musters als String für die Anzeige
 	boolean 				refresh;																						// Update-Flag für die Anzeige
 	clickType_t 		click;																							// Click-Status
 	const rock_t 		*rPtr;																							// Zeiger auf die globale Konstantenstruktur
@@ -44,7 +45,6 @@ class Button {																												// Input: Click, Output: Click-Status
 class Handler {																												// Input: Click-Status, Output: Modus, Longclick-Zähler, Ausgangsmuster
 	private:
 		config_t &rg;
-		uint32_t nextTime;
 		void shortClick();
 		void shortLoop();
 		void longClick();
@@ -52,7 +52,7 @@ class Handler {																												// Input: Click-Status, Output: Modus
 		void ror();
 		void ping();
 	public:
-		Handler(config_t &rg) : rg(rg), nextTime(0) {}
+		Handler(config_t &rg) : rg(rg) {}
 		void update();		
 };
 
@@ -112,6 +112,10 @@ void Handler::shortLoop() {
 			case BACKWARD: rol(); break;
 			case PING: ping(); break;
 		}
+		for(uint8_t i = 0; i < 8; i++) {
+			rg.outstr[7 - i] = (rg.output & (0x01 << i)) ? '\x2A' : '\x20'; // Fülle den Puffer mit '*' oder ' ' entsprechend den Bits des Musters
+		}
+
 	}
 }
 
@@ -154,12 +158,7 @@ void Show::update() {
  		for(uint8_t i = 0; i < 8; i++) {
 			digitalWrite(rg.rPtr->leds[i], (dat >> i) & 0x01);
 		}
-		char buffer[9];  																									// Puffer für die Binärdarstellung des Musters
-		for(uint8_t i = 0; i < 8; i++) {
-			buffer[7 - i] = (dat & (0x01 << i)) ? '\x2A' : '\x20';  				// Fülle den Puffer mit '*' oder ' ' entsprechend den Bits des Musters
-		}
-		buffer[8] = '\0';  																								// Nullterminator für die String-Ausgabe
-		Serial.println(buffer);	
+		Serial.println(rg.outstr);
 	}	
 }
 
@@ -186,16 +185,7 @@ void Lcd::update() {
 		lcd.setCursor(6, 0);
 		lcd.print(rg.rPtr->msg[rg.mode]);
 		lcd.setCursor(7, 1);
-		if(rg.output == 0) {
-			lcd.print("        ");  																				// Clear the second row if output is 0
-			return;
-		}
-		char buffer[9];  		
-		for(uint8_t i = 0; i < 8; i++) {
-			buffer[7 - i] = (rg.output & (0x01 << i)) ? '\x2A' : '\x20';  	// Fülle den Puffer mit '*' oder ' ' entsprechend den Bits des Musters
-		}
-		buffer[8] = '\0';  																								// Nullterminator für die String-Ausgabe
-		lcd.print(buffer);  																							// Print the current output pattern in binary on the second row	
+ 		lcd.print(rg.outstr);
 	}																					
 }
 

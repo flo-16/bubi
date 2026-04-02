@@ -19,6 +19,7 @@ config_t co = {																												// globale Variable - wird in den Kla
 	.mode 			= STAY,
 	.ltClick 		= 0,
 	.output 		= 0,
+	.outstr			= NULL,
 	.refresh		= true,
 	.click 			= NOCLICK,
 	.rPtr 			= &rock
@@ -29,19 +30,26 @@ Handler handler(co);  																								// Handler-Objekt mit Referenz auf
 Show show(co);                                          							// Show-Objekt mit Referenz auf Konfigurationsstruktur
 Lcd lcd(co);																													// LCD-Objekt mit Referenz auf Konfigurationsstruktur
 
-void init(const rock_t *rPtr) {																				// Alle Pins initialisieren, wird in setup() aufgerufen
-	pinMode(rPtr->btn, INPUT_PULLUP);
+
+void init(config_t &rg) {																							// Alle Pins initialisieren, wird in setup() aufgerufen
+	pinMode(rg.rPtr->btn, INPUT_PULLUP);
 	for(uint8_t i = 0; i < 8; i++) {
-		pinMode(rPtr->leds[i], OUTPUT);
-		digitalWrite(rPtr->leds[i], LOW);
+		pinMode(rg.rPtr->leds[i], OUTPUT);
+		digitalWrite(rg.rPtr->leds[i], LOW);
 	}
+	rg.outstr = (char*) malloc(9 * sizeof(char));  											// Speicher für die Binärdarstellung des Musters reservieren
+	if(rg.outstr == NULL) {
+		Serial.println("Fehler: Kein Speicher verfügbar!");
+		while(1);  																												// Endlosschleife, wenn kein Speicher verfügbar ist
+	}
+	rg.outstr[8] = '\0';  																							// Nullterminator für die String-Ausgabe
 }
 
 void setup() {
 	Serial.begin(115200);
 	delay(1000);  																											// Warte auf Serial-Monitor
 	Serial.println("\nBubi gestartet.\nAktueller Modus: " + String(rock.msg[co.mode]));  		
-	init(&rock); 
+	init(co); 
 	lcd.init();																												  // Initialisierung LCD und Anzeige der Startinformationen
 }
 
